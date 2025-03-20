@@ -1,0 +1,12 @@
+[
+  {
+    "firstName": "Raj",
+    "lastName": "Mehra",
+    "address": "Vasant Vihar",
+    "city": "Delhi",
+    "state": "Delhi",
+    "zip": "10001",
+    "phoneNumber": "1234567890",
+    "email": "raj.mehra@example.com"
+  }
+]
