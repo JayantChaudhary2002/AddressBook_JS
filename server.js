@@ -84,6 +84,13 @@ app.post('/addressBooks/:bookName/contacts', (req, res) => {
         return res.status(400).json({ error: 'Invalid Email Format' });
     }
 
+    const contacts = data.addressBooks[bookName];
+    const isDuplicate = contacts.some(contact => contact.firstName === firstName && contact.lastName === lastName);
+    
+    if (isDuplicate) {
+        return res.status(400).json({ error: 'Duplicate entry: Contact with the same first and last name already exists' });
+    }
+
     const newContact = { firstName, lastName, address, city, state, zip, phoneNumber, email };
     data.addressBooks[bookName].push(newContact);
     saveAddressBooks(data);
