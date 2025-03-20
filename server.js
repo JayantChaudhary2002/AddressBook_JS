@@ -8,12 +8,9 @@ const DATA_FILE = path.join(__dirname, 'contacts.json');
 
 app.use(express.json()); // Middleware to parse JSON requests
 
-// Load data or initialize empty address books
-let addressBooks = {};
-if (fs.existsSync(DATA_FILE)) {
-    addressBooks = JSON.parse(fs.readFileSync(DATA_FILE));
-} else {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({}));
+// Ensure the JSON file exists
+if (!fs.existsSync(DATA_FILE)) {
+    fs.writeFileSync(DATA_FILE, JSON.stringify([]));
 }
 
 // Validation functions
@@ -37,27 +34,20 @@ function isValidEmail(email) {
     return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
 }
 
-// Create a new Address Book
-app.post('/addressBooks/:bookName', (req, res) => {
-    const { bookName } = req.params;
-    if (addressBooks[bookName]) {
-        return res.status(400).json({ error: `Address Book '${bookName}' already exists` });
-    }
-    addressBooks[bookName] = [];
-    fs.writeFileSync(DATA_FILE, JSON.stringify(addressBooks, null, 2));
-    res.status(201).json({ message: `Address Book '${bookName}' created successfully` });
-});
+// Read contacts from file
+function readContacts() {
+    return JSON.parse(fs.readFileSync(DATA_FILE));
+}
 
-// Add a new contact to an Address Book
-app.post('/addressBooks/:bookName/contacts', (req, res) => {
-    const { bookName } = req.params;
-    if (!addressBooks[bookName]) {
-        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
-    }
+// Write contacts to file
+function writeContacts(contacts) {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(contacts, null, 2));
+}
 
+// API to add a new contact
+app.post('/contacts', (req, res) => {
     const { firstName, lastName, address, city, state, zip, phoneNumber, email } = req.body;
     
-    // Validate inputs
     if (!isValidName(firstName) || !isValidName(lastName)) {
         return res.status(400).json({ error: 'First and Last Name must start with a capital letter and have at least 3 characters' });
     }
@@ -74,99 +64,60 @@ app.post('/addressBooks/:bookName/contacts', (req, res) => {
         return res.status(400).json({ error: 'Invalid Email Format' });
     }
 
-    // Check for duplicate entry (same name)
-    const isDuplicate = addressBooks[bookName].some(contact => contact.firstName === firstName && contact.lastName === lastName);
-    if (isDuplicate) {
-        return res.status(400).json({ error: 'Duplicate contact entry found in Address Book' });
+    const contacts = readContacts();
+    
+    // Check for duplicate entry
+    if (contacts.some(contact => contact.firstName === firstName && contact.lastName === lastName)) {
+        return res.status(400).json({ error: 'Duplicate entry: Contact with the same name already exists' });
     }
 
     const newContact = { firstName, lastName, address, city, state, zip, phoneNumber, email };
-    addressBooks[bookName].push(newContact);
-    fs.writeFileSync(DATA_FILE, JSON.stringify(addressBooks, null, 2));
-
+    contacts.push(newContact);
+    writeContacts(contacts);
+    
     res.status(201).json({ message: 'Contact added successfully', contact: newContact });
 });
 
-// Get all contacts from an Address Book
-app.get('/addressBooks/:bookName/contacts', (req, res) => {
-    const { bookName } = req.params;
-    if (!addressBooks[bookName]) {
-        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
-    }
-    res.json(addressBooks[bookName]);
+// API to get sorted contacts
+app.get('/contacts/sorted', (req, res) => {
+    const contacts = readContacts().sort((a, b) => a.firstName.localeCompare(b.firstName));
+    console.log("Sorted Contacts:", contacts);
+    res.json(contacts);
 });
 
-// Edit an existing contact
-app.put('/addressBooks/:bookName/contacts/:name', (req, res) => {
-    const { bookName, name } = req.params;
-    if (!addressBooks[bookName]) {
-        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
-    }
-
-    const contact = addressBooks[bookName].find(contact => contact.firstName === name);
-    if (!contact) {
-        return res.status(404).json({ error: `Contact '${name}' not found` });
-    }
-
-    Object.assign(contact, req.body);
-    fs.writeFileSync(DATA_FILE, JSON.stringify(addressBooks, null, 2));
-
-    res.json({ message: 'Contact updated successfully', contact });
-});
-
-// Delete a contact
-app.delete('/addressBooks/:bookName/contacts/:name', (req, res) => {
-    const { bookName, name } = req.params;
-    if (!addressBooks[bookName]) {
-        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
-    }
-
-    addressBooks[bookName] = addressBooks[bookName].filter(contact => contact.firstName !== name);
-    fs.writeFileSync(DATA_FILE, JSON.stringify(addressBooks, null, 2));
-
-    res.json({ message: `Contact '${name}' deleted successfully` });
-});
-
-// Search contacts by city or state
-app.get('/addressBooks/:bookName/contacts/search', (req, res) => {
-    const { bookName } = req.params;
+// API to search for contacts by city or state
+app.get('/contacts/search', (req, res) => {
     const { city, state } = req.query;
-
-    if (!addressBooks[bookName]) {
-        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
-    }
-
-    let filteredContacts = addressBooks[bookName];
-
-    if (city) {
-        filteredContacts = filteredContacts.filter(contact => contact.city.toLowerCase() === city.toLowerCase().trim());
-    }
-    if (state) {
-        filteredContacts = filteredContacts.filter(contact => contact.state.toLowerCase() === state.toLowerCase().trim());
-    }
-
-    res.json(filteredContacts);
+    const contacts = readContacts().filter(contact => 
+        (city && contact.city === city) || (state && contact.state === state)
+    );
+    res.json(contacts.length ? contacts : { message: 'No contacts found' });
 });
 
-// Get contact count by city or state
-app.get('/addressBooks/:bookName/contacts/countByLocation', (req, res) => {
-    const { bookName } = req.params;
-    const { city, state } = req.query;
-
-    if (!addressBooks[bookName]) {
-        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
+// API to delete a contact by name
+app.delete('/contacts/:firstName', (req, res) => {
+    let contacts = readContacts();
+    const initialLength = contacts.length;
+    contacts = contacts.filter(contact => contact.firstName !== req.params.firstName);
+    if (contacts.length === initialLength) {
+        return res.status(404).json({ error: 'Contact not found' });
     }
+    writeContacts(contacts);
+    res.json({ message: 'Contact deleted successfully' });
+});
 
-    let contacts = addressBooks[bookName];
-
-    if (city) {
-        contacts = contacts.filter(contact => contact.city.toLowerCase() === city.toLowerCase().trim());
-    }
-    if (state) {
-        contacts = contacts.filter(contact => contact.state.toLowerCase() === state.toLowerCase().trim());
-    }
-
-    res.json({ message: "Contact count by location", city: city || "N/A", state: state || "N/A", count: contacts.length });
+// API to get the number of contacts by city or state
+app.get('/contacts/count', (req, res) => {
+    const contacts = readContacts();
+    const cityCount = contacts.reduce((acc, contact) => {
+        acc[contact.city] = (acc[contact.city] || 0) + 1;
+        return acc;
+    }, {});
+    const stateCount = contacts.reduce((acc, contact) => {
+        acc[contact.state] = (acc[contact.state] || 0) + 1;
+        return acc;
+    }, {});
+    res.json({ cityCount, stateCount });
 });
 
 // Start the server
