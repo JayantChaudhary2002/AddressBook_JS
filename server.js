@@ -117,6 +117,28 @@ app.put('/addressBooks/:bookName/contacts/:name', (req, res) => {
     res.status(200).json({ message: `Contact '${name}' updated successfully`, contact: updatedData });
 });
 
+// Delete a contact by name
+app.delete('/addressBooks/:bookName/contacts/:name', (req, res) => {
+    const { bookName, name } = req.params;
+    const data = loadAddressBooks();
+    
+    if (!data.addressBooks[bookName]) {
+        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
+    }
+    
+    let contacts = data.addressBooks[bookName];
+    let contactIndex = contacts.findIndex(contact => contact.firstName === name);
+    
+    if (contactIndex === -1) {
+        return res.status(404).json({ error: `Contact '${name}' not found in Address Book '${bookName}'` });
+    }
+    
+    contacts.splice(contactIndex, 1);
+    saveAddressBooks(data);
+    
+    res.status(200).json({ message: `Contact '${name}' deleted successfully` });
+});
+
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

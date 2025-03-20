@@ -2,14 +2,14 @@
   "addressBooks": {
     "Personal": [
       {
-        "firstName": "Ajay",
-        "lastName": "Mishra",
-        "address": "gurugram",
-        "city": "Palwal",
-        "state": "Haryana",
+        "firstName": "Arnav",
+        "lastName": "Singh",
+        "address": "Navi Mumbai",
+        "city": "Mumbai",
+        "state": "Maharashtra",
         "zip": "62704",
-        "phoneNumber": "9876543210",
-        "email": "ajay.mishra@example.com"
+        "phoneNumber": "0123456789",
+        "email": "arnav.singh@example.com"
       }
     ]
   }
