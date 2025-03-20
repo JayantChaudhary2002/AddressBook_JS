@@ -1,12 +1,16 @@
-[
-  {
-    "firstName": "Raj",
-    "lastName": "Mehra",
-    "address": "Vasant Vihar",
-    "city": "Delhi",
-    "state": "Delhi",
-    "zip": "10001",
-    "phoneNumber": "1234567890",
-    "email": "raj.mehra@example.com"
+{
+  "addressBooks": {
+    "Personal": [
+      {
+        "firstName": "Ajay",
+        "lastName": "Mishra",
+        "address": "Palwal",
+        "city": "Palwal",
+        "state": "Haryana",
+        "zip": "62704",
+        "phoneNumber": "0123456789",
+        "email": "ajay.mishra@example.com"
+      }
+    ]
   }
-]
+}

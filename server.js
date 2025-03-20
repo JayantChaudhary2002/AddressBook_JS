@@ -10,7 +10,7 @@ app.use(express.json()); // Middleware to parse JSON requests
 
 // Ensure the JSON file exists
 if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify([]));
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ addressBooks: {} }, null, 2));
 }
 
 // Validation functions
@@ -34,10 +34,41 @@ function isValidEmail(email) {
     return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
 }
 
-// API to add a new contact
-app.post('/contacts', (req, res) => {
+// API to create a new Address Book
+app.post('/addressBooks/:bookName', (req, res) => {
+    const { bookName } = req.params;
+    const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8') || '{}');
+
+    if (!data.addressBooks) {
+        data.addressBooks = {};
+    }
+
+    if (data.addressBooks[bookName]) {
+        return res.status(400).json({ error: `Address Book '${bookName}' already exists` });
+    }
+
+    data.addressBooks[bookName] = [];
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+
+    res.status(201).json({ message: `Address Book '${bookName}' created successfully` });
+});
+
+// API to add a new contact to an Address Book
+app.post('/addressBooks/:bookName/contacts', (req, res) => {
+    const { bookName } = req.params;
     const { firstName, lastName, address, city, state, zip, phoneNumber, email } = req.body;
-    
+
+    const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8') || '{}');
+
+    if (!data.addressBooks) {
+        data.addressBooks = {};
+    }
+
+    if (!data.addressBooks[bookName]) {
+        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
+    }
+
+    // Validation checks
     if (!isValidName(firstName) || !isValidName(lastName)) {
         return res.status(400).json({ error: 'First and Last Name must start with a capital letter and have at least 3 characters' });
     }
@@ -54,13 +85,14 @@ app.post('/contacts', (req, res) => {
         return res.status(400).json({ error: 'Invalid Email Format' });
     }
 
+    // Add new contact
     const newContact = { firstName, lastName, address, city, state, zip, phoneNumber, email };
+    data.addressBooks[bookName].push(newContact);
     
-    const contacts = JSON.parse(fs.readFileSync(DATA_FILE));
-    contacts.push(newContact);
-    fs.writeFileSync(DATA_FILE, JSON.stringify(contacts, null, 2));
-    
-    res.status(201).json({ message: 'Contact added successfully', contact: newContact });
+    // Save to JSON file
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+
+    res.status(201).json({ message: `Contact added to Address Book '${bookName}' successfully`, contact: newContact });
 });
 
 // Start the server
