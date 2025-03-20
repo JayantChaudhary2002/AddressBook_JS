@@ -91,33 +91,20 @@ app.post('/addressBooks/:bookName/contacts', (req, res) => {
     res.status(201).json({ message: `Contact added to Address Book '${bookName}' successfully`, contact: newContact });
 });
 
-// Edit an existing contact by name
-app.put('/addressBooks/:bookName/contacts/:name', (req, res) => {
-    const { bookName, name } = req.params;
-    const updatedContact = req.body;
+// Get the number of contacts in an Address Book
+app.get('/addressBooks/:bookName/contacts/count', (req, res) => {
+    const { bookName } = req.params;
     const data = loadAddressBooks();
     
     if (!data.addressBooks[bookName]) {
         return res.status(404).json({ error: `Address Book '${bookName}' not found` });
     }
     
-    let contacts = data.addressBooks[bookName];
-    let contactIndex = contacts.findIndex(contact => contact.firstName === name);
-    
-    if (contactIndex === -1) {
-        return res.status(404).json({ error: `Contact '${name}' not found in Address Book '${bookName}'` });
-    }
-    
-    const existingContact = contacts[contactIndex];
-    const updatedData = { ...existingContact, ...updatedContact };
-    
-    contacts[contactIndex] = updatedData;
-    saveAddressBooks(data);
-    
-    res.status(200).json({ message: `Contact '${name}' updated successfully`, contact: updatedData });
+    const contactCount = data.addressBooks[bookName].length;
+    res.status(200).json({ message: `Total contacts in '${bookName}': ${contactCount}`, count: contactCount });
 });
 
-// Delete a contact by name
+// Delete a contact by name from an Address Book
 app.delete('/addressBooks/:bookName/contacts/:name', (req, res) => {
     const { bookName, name } = req.params;
     const data = loadAddressBooks();
@@ -126,17 +113,16 @@ app.delete('/addressBooks/:bookName/contacts/:name', (req, res) => {
         return res.status(404).json({ error: `Address Book '${bookName}' not found` });
     }
     
-    let contacts = data.addressBooks[bookName];
-    let contactIndex = contacts.findIndex(contact => contact.firstName === name);
+    const contacts = data.addressBooks[bookName];
+    const filteredContacts = contacts.filter(contact => contact.firstName !== name && contact.lastName !== name);
     
-    if (contactIndex === -1) {
+    if (contacts.length === filteredContacts.length) {
         return res.status(404).json({ error: `Contact '${name}' not found in Address Book '${bookName}'` });
     }
     
-    contacts.splice(contactIndex, 1);
+    data.addressBooks[bookName] = filteredContacts;
     saveAddressBooks(data);
-    
-    res.status(200).json({ message: `Contact '${name}' deleted successfully` });
+    res.status(200).json({ message: `Contact '${name}' deleted from Address Book '${bookName}'` });
 });
 
 // Start the server
