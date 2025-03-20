@@ -4,11 +4,11 @@
       {
         "firstName": "Ajay",
         "lastName": "Mishra",
-        "address": "Palwal",
+        "address": "gurugram",
         "city": "Palwal",
         "state": "Haryana",
         "zip": "62704",
-        "phoneNumber": "0123456789",
+        "phoneNumber": "9876543210",
         "email": "ajay.mishra@example.com"
       }
     ]
