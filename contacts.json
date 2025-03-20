@@ -1,16 +1,24 @@
 {
-  "addressBooks": {
-    "Personal": [
-      {
-        "firstName": "Arnav",
-        "lastName": "Singh",
-        "address": "Navi Mumbai",
-        "city": "Mumbai",
-        "state": "Maharashtra",
-        "zip": "62704",
-        "phoneNumber": "0123456789",
-        "email": "arnav.singh@example.com"
-      }
-    ]
-  }
+  "Personal": [
+    {
+      "firstName": "Ajay",
+      "lastName": "Mishra",
+      "address": "Palwal",
+      "city": "Palwal",
+      "state": "Haryana",
+      "zip": "62704",
+      "phoneNumber": "0123456789",
+      "email": "ajay.mishra@example.com"
+    },
+    {
+      "firstName": "Raj",
+      "lastName": "Verma",
+      "address": "Market Road",
+      "city": "Palwal",
+      "state": "Haryana",
+      "zip": "121102",
+      "phoneNumber": "9998887776",
+      "email": "raj.verma@example.com"
+    }
+  ]
 }

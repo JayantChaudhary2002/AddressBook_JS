@@ -10,17 +10,7 @@ app.use(express.json()); // Middleware to parse JSON requests
 
 // Ensure the JSON file exists
 if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ addressBooks: {} }));
-}
-
-// Load Address Books
-function loadAddressBooks() {
-    return JSON.parse(fs.readFileSync(DATA_FILE));
-}
-
-// Save Address Books
-function saveAddressBooks(data) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    fs.writeFileSync(DATA_FILE, JSON.stringify({}));
 }
 
 // Validation functions
@@ -44,30 +34,33 @@ function isValidEmail(email) {
     return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
 }
 
-// Create a new Address Book
+// API to create a new Address Book
 app.post('/addressBooks/:bookName', (req, res) => {
     const { bookName } = req.params;
-    const data = loadAddressBooks();
-    
-    if (data.addressBooks[bookName]) {
+    const addressBooks = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+
+    if (addressBooks[bookName]) {
         return res.status(400).json({ error: `Address Book '${bookName}' already exists` });
     }
-    
-    data.addressBooks[bookName] = [];
-    saveAddressBooks(data);
+
+    addressBooks[bookName] = [];
+    fs.writeFileSync(DATA_FILE, JSON.stringify(addressBooks, null, 2));
+
     res.status(201).json({ message: `Address Book '${bookName}' created successfully` });
 });
 
-// Add a contact to an Address Book
+// API to add a new contact
 app.post('/addressBooks/:bookName/contacts', (req, res) => {
     const { bookName } = req.params;
     const { firstName, lastName, address, city, state, zip, phoneNumber, email } = req.body;
-    const data = loadAddressBooks();
-    
-    if (!data.addressBooks[bookName]) {
+
+    const addressBooks = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+
+    if (!addressBooks[bookName]) {
         return res.status(404).json({ error: `Address Book '${bookName}' not found` });
     }
-    
+
+    // Validate input
     if (!isValidName(firstName) || !isValidName(lastName)) {
         return res.status(400).json({ error: 'First and Last Name must start with a capital letter and have at least 3 characters' });
     }
@@ -84,52 +77,100 @@ app.post('/addressBooks/:bookName/contacts', (req, res) => {
         return res.status(400).json({ error: 'Invalid Email Format' });
     }
 
-    const contacts = data.addressBooks[bookName];
-    const isDuplicate = contacts.some(contact => contact.firstName === firstName && contact.lastName === lastName);
-    
-    if (isDuplicate) {
-        return res.status(400).json({ error: 'Duplicate entry: Contact with the same first and last name already exists' });
+    // Check for duplicate contact
+    const existingContact = addressBooks[bookName].find(contact => 
+        contact.firstName === firstName && contact.lastName === lastName
+    );
+    if (existingContact) {
+        return res.status(400).json({ error: 'Duplicate entry: Contact with same name already exists' });
     }
 
     const newContact = { firstName, lastName, address, city, state, zip, phoneNumber, email };
-    data.addressBooks[bookName].push(newContact);
-    saveAddressBooks(data);
-    
-    res.status(201).json({ message: `Contact added to Address Book '${bookName}' successfully`, contact: newContact });
+    addressBooks[bookName].push(newContact);
+    fs.writeFileSync(DATA_FILE, JSON.stringify(addressBooks, null, 2));
+
+    res.status(201).json({ message: 'Contact added successfully', contact: newContact });
 });
 
-// Get the number of contacts in an Address Book
+// API to search contacts by City or State
+app.get('/addressBooks/:bookName/contacts/search', (req, res) => {
+    const { bookName } = req.params;
+    const { city, state } = req.query;
+    const addressBooks = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+
+    if (!addressBooks[bookName]) {
+        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
+    }
+
+    let filteredContacts = addressBooks[bookName];
+
+    if (city) {
+        filteredContacts = filteredContacts.filter(contact => contact.city.toLowerCase() === city.toLowerCase());
+    }
+
+    if (state) {
+        filteredContacts = filteredContacts.filter(contact => contact.state.toLowerCase() === state.toLowerCase());
+    }
+
+    if (filteredContacts.length === 0) {
+        return res.status(404).json({ message: `No contacts found in city: ${city || ''} state: ${state || ''}` });
+    }
+
+    res.json({ message: `Contacts found`, contacts: filteredContacts });
+});
+
+// API to update an existing contact by name
+app.put('/addressBooks/:bookName/contacts/:firstName', (req, res) => {
+    const { bookName, firstName } = req.params;
+    const updatedContact = req.body;
+    const addressBooks = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+
+    if (!addressBooks[bookName]) {
+        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
+    }
+
+    const index = addressBooks[bookName].findIndex(contact => contact.firstName === firstName);
+    if (index === -1) {
+        return res.status(404).json({ error: `Contact '${firstName}' not found in Address Book '${bookName}'` });
+    }
+
+    addressBooks[bookName][index] = { ...addressBooks[bookName][index], ...updatedContact };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(addressBooks, null, 2));
+
+    res.json({ message: `Contact '${firstName}' updated successfully`, contact: addressBooks[bookName][index] });
+});
+
+// API to delete a contact by name
+app.delete('/addressBooks/:bookName/contacts/:firstName', (req, res) => {
+    const { bookName, firstName } = req.params;
+    const addressBooks = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+
+    if (!addressBooks[bookName]) {
+        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
+    }
+
+    const initialLength = addressBooks[bookName].length;
+    addressBooks[bookName] = addressBooks[bookName].filter(contact => contact.firstName !== firstName);
+
+    if (addressBooks[bookName].length === initialLength) {
+        return res.status(404).json({ error: `Contact '${firstName}' not found in Address Book '${bookName}'` });
+    }
+
+    fs.writeFileSync(DATA_FILE, JSON.stringify(addressBooks, null, 2));
+
+    res.json({ message: `Contact '${firstName}' deleted successfully` });
+});
+
+// API to get the total number of contacts in an Address Book
 app.get('/addressBooks/:bookName/contacts/count', (req, res) => {
     const { bookName } = req.params;
-    const data = loadAddressBooks();
-    
-    if (!data.addressBooks[bookName]) {
-        return res.status(404).json({ error: `Address Book '${bookName}' not found` });
-    }
-    
-    const contactCount = data.addressBooks[bookName].length;
-    res.status(200).json({ message: `Total contacts in '${bookName}': ${contactCount}`, count: contactCount });
-});
+    const addressBooks = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 
-// Delete a contact by name from an Address Book
-app.delete('/addressBooks/:bookName/contacts/:name', (req, res) => {
-    const { bookName, name } = req.params;
-    const data = loadAddressBooks();
-    
-    if (!data.addressBooks[bookName]) {
+    if (!addressBooks[bookName]) {
         return res.status(404).json({ error: `Address Book '${bookName}' not found` });
     }
-    
-    const contacts = data.addressBooks[bookName];
-    const filteredContacts = contacts.filter(contact => contact.firstName !== name && contact.lastName !== name);
-    
-    if (contacts.length === filteredContacts.length) {
-        return res.status(404).json({ error: `Contact '${name}' not found in Address Book '${bookName}'` });
-    }
-    
-    data.addressBooks[bookName] = filteredContacts;
-    saveAddressBooks(data);
-    res.status(200).json({ message: `Contact '${name}' deleted from Address Book '${bookName}'` });
+
+    res.json({ message: `Total contacts in '${bookName}': ${addressBooks[bookName].length}` });
 });
 
 // Start the server
