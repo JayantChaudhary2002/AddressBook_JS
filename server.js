@@ -85,6 +85,17 @@ app.get('/contacts/sorted', (req, res) => {
     res.json(contacts);
 });
 
+// API to sort contacts by city, state, or zip
+app.get('/contacts/sorted/:criteria', (req, res) => {
+    const criteria = req.params.criteria;
+    const validCriteria = ['city', 'state', 'zip'];
+    if (!validCriteria.includes(criteria)) {
+        return res.status(400).json({ error: 'Invalid sorting criteria. Use city, state, or zip' });
+    }
+    const contacts = readContacts().sort((a, b) => a[criteria].localeCompare(b[criteria]));
+    res.json(contacts);
+});
+
 // API to search for contacts by city or state
 app.get('/contacts/search', (req, res) => {
     const { city, state } = req.query;
